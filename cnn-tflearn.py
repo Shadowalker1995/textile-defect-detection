@@ -67,7 +67,7 @@ def Network(class_num):
 def train(x_train, x_eval, y_train, y_eval, model, save_file=None):
     model.fit(x_train, y_train,
               n_epoch=300,
-              batch_size=32,
+              batch_size=8,
               validation_set=(x_eval, y_eval),
               show_metric=True,
               snapshot_step=100,
@@ -124,24 +124,24 @@ def main():
     model = tflearn.models.dnn.DNN(network,
                                    tensorboard_dir='./tflearn_logs/',
                                    checkpoint_path='./ckpt/ckpt/',
-                                   best_checkpoint_path='./ckpt/ckpt//best/',
-                                   tensorboard_verbose=3,
+                                   best_checkpoint_path='./ckpt/best/',
+                                   tensorboard_verbose=2,
                                    best_val_accuracy=0.9
                                    )
 
-    trained_model = train(x_train, x_val, y_train, y_val, model, save_file="./models/dd.tfl")
-    # acc_train = predict(x_train, y_train, model,
-    #                     model_file="./models/MilikenTrain.tfl",
-    #                     csv_file="./results/predicted_train.csv")
-    # print("Train accuracy: ", acc_train)
-    # acc_val = predict(x_val, y_val, model,
-    #                   model_file="./models/MilikenTrain.tfl",
-    #                   csv_file="./results/predicted_val.csv")
-    # print("Validation accuracy: ", acc_val)
-    # acc_test = predict(x_test, y_test, model,
-    #                    model_file="./models/MilikenTrain.tfl",
-    #                    csv_file="./results/predicted_test.csv")
-    # print("Test accuracy: ", acc_test)
+    # trained_model = train(x_train, x_val, y_train, y_val, model, save_file="./models/dd.tfl")
+    acc_train = predict(x_train, y_train, model,
+                        model_file="./models/tflearn/dd.tfl",
+                        csv_file="./results/predicted_train.csv")
+    print("Train accuracy: ", acc_train)
+    acc_val = predict(x_val, y_val, model,
+                      model_file="./models/tflearn/dd.tfl",
+                      csv_file="./results/predicted_val.csv")
+    print("Validation accuracy: ", acc_val)
+    acc_test = predict(x_test, y_test, model,
+                       model_file="./models/tflearn/dd.tfl",
+                       csv_file="./results/predicted_test.csv")
+    print("Test accuracy: ", acc_test)
 
 
 if __name__ == "__main__":
