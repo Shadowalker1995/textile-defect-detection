@@ -130,6 +130,7 @@ dmypy.json
 
 # Customized
 data/
+data
 bak/
 ckpt/
 models/

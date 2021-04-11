@@ -140,25 +140,35 @@ if __name__ == "__main__":
     MEAN_STD_PATH = "../data/8Classes-9041/mean_std_value_train.pkl"
     CHECKPOINT_PATH = "./ckpt/"
 
+    NUM_CLASSES = 8
     RESIZE = (200, 200)
     EPOCHS = 300
-    BATCH_SIZE = 32
+    BATCH_SIZE = 8
     LEARNING_RATE = 8e-4
-    NUM_WORKERS = 4
+    NUM_WORKERS = 0
+    PRETRAINED = True
+    FULL_TRAIN = False
+
+    # MODEL_NAME = "CNN"
+    # MODEL_NAME = "Inception"
+    # MODEL_NAME = "GoogleNet"
+    # MODEL_NAME = "ResNet"
+    # MODEL_NAME = "ResNetPreAct"
+    MODEL_NAME = "DenseNet"
 
     if os.path.exists(MEAN_STD_PATH):
         with open(MEAN_STD_PATH, 'rb') as f:
             MEAN = pickle.load(f)
             STD = pickle.load(f)
-            MEAN = MEAN[:1]
-            STD = STD[:1]
+            # MEAN = MEAN[:1]
+            # STD = STD[:1]
             # print(MEAN)
             # print(STD)
             print('MEAN and STD load done')
 
     transform = transforms.Compose(
             [
-                transforms.Grayscale(num_output_channels=1),
+                transforms.Grayscale(num_output_channels=3),
                 transforms.Resize(RESIZE),
                 transforms.CenterCrop(RESIZE),
                 transforms.RandomHorizontalFlip(),
@@ -198,8 +208,75 @@ if __name__ == "__main__":
     print("Detected Classes are: ", train_data.class_to_idx)
 
     # train()
-    model, results = train_model(model_name="CNN",
-                                 model_hparams={"num_classes": 8},
-                                 optimizer_name="Adam",
-                                 optimizer_hparams={"lr": LEARNING_RATE, "weight_decay": 0})
-    print("Results", results)
+    if MODEL_NAME == "CNN":
+        CNN_model, CNN_results = train_model(model_name=MODEL_NAME,
+                                             model_hparams={"num_classes": NUM_CLASSES},
+                                             optimizer_name="Adam",
+                                             optimizer_hparams={"lr": LEARNING_RATE, "weight_decay": 0})
+        print("Results", CNN_results)
+
+    elif MODEL_NAME == "Inception":
+        Inception_model, Inception_model_results = train_model(model_name=MODEL_NAME,
+                                                               model_hparams={"num_classes": NUM_CLASSES,
+                                                                              "full_train": FULL_TRAIN},
+                                                               optimizer_name="Adam",
+                                                               optimizer_hparams={"lr": LEARNING_RATE, "weight_decay": 0})
+        print("Results", Inception_model_results)
+
+    elif MODEL_NAME == "GoogleNet":
+        GoogleNet_model, GoogleNet_results = train_model(model_name=MODEL_NAME,
+                                                         model_hparams={"num_classes": NUM_CLASSES,
+                                                                        "act_fn_name": "relu"},
+                                                         optimizer_name="Adam",
+                                                         optimizer_hparams={"lr": LEARNING_RATE, "weight_decay": 0})
+        print("Results", GoogleNet_results)
+
+    elif MODEL_NAME == "ResNet":
+        ResNet_model, ResNet_results = train_model(model_name=MODEL_NAME,
+                                                   model_hparams={"num_classes": NUM_CLASSES,
+                                                                  "c_hidden": [16, 32, 64],
+                                                                  "num_blocks": [3, 3, 3],
+                                                                  "act_fn_name": "relu"},
+                                                   optimizer_name="SGD",
+                                                   optimizer_hparams={"lr": 0.1,
+                                                                      "momentum": 0.9,
+                                                                      "weight_decay": 1e-4})
+        print("Results", ResNet_results)
+
+    elif MODEL_NAME == "ResNetPreAct":
+        # pre-activation ResNet
+        ResNetPreAct_model, ResNetPreAct_results = train_model(model_name="ResNet",
+                                                               model_hparams={"num_classes": NUM_CLASSES,
+                                                                              "c_hidden": [16, 32, 64],
+                                                                              "num_blocks": [3, 3, 3],
+                                                                              "act_fn_name": "relu",
+                                                                              "block_name": "PreActResNetBlock"},
+                                                               optimizer_name="SGD",
+                                                               optimizer_hparams={"lr": 0.1,
+                                                                                  "momentum": 0.9,
+                                                                                  "weight_decay": 1e-4},
+                                                               save_name="ResNetPreAct")
+        print("Results", ResNetPreAct_results)
+
+    elif MODEL_NAME == "DenseNet":
+        DenseNet_model, DenseNet_results = train_model(model_name=MODEL_NAME,
+                                                       model_hparams={"num_classes": NUM_CLASSES,
+                                                                      "num_layers": [6, 6, 6, 6],
+                                                                      "bn_size": 2,
+                                                                      "growth_rate": 16,
+                                                                      "act_fn_name": "relu"},
+                                                       optimizer_name="Adam",
+                                                       optimizer_hparams={"lr": 1e-3,
+                                                                          "weight_decay": 1e-4})
+        print("{} Results", DenseNet_results)
+
+    # just for test
+    # model, results = train_model(model_name=MODEL_NAME,
+    #                              model_hparams={"num_classes": NUM_CLASSES,
+    #                                             "pretrained": PRETRAINED,
+    #                                             "full_train": FULL_TRAIN,
+    #                                             # "act_fn_name": "relu",
+    #                                             },
+    #                              optimizer_name="Adam",
+    #                              optimizer_hparams={"lr": LEARNING_RATE, "weight_decay": 0})
+    # print(f"{MODEL_NAME} Results", results)
