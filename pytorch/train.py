@@ -1,5 +1,14 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+FileName:	train.py
+Author:	Zhu Zhan
+Email:	henry664650770@gmail.com
+Date:		2021-04-11 03:09:28
+"""
+
 import torch
-import torch.nn as nn
 import torch.utils.data as data
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
@@ -8,78 +17,48 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
 import os
 import pickle
-from tqdm import tqdm
+import argparse
 
 from Model import CNN, Trainer
 
 
-# Accuracy check
-def check_accuracy(loader, model):
-    if loader == train_loader:
-        print("Checking accuracy on training data")
-    else:
-        print("Checking accuracy on validation data")
+parser = argparse.ArgumentParser()
 
-    num_correct = 0
-    num_samples = 0
+# Model
+parser.add_argument("-m", dest="model", type=str, default="CNN",
+                    help="Model Name, e.g. CNN|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet (Default: CNN)")
+parser.add_argument("-sn", dest="save_name", type=str, default="",
+                    help="Specify the file name for saving model! (Default: "", i.e. Disabled)")
 
-    # Note its important to put the model in eval mode to avoid
-    # back-prorogation during accuracy calculation
-    model.eval()
+# General Hyperparameters
+parser.add_argument("-bs", dest="batch_size", type=int, default=128, help="Batch Size (Default: 128)")
+parser.add_argument("-e", dest="epochs", type=int, default=100, help="Number of Training Epochs (Default: 100)")
+parser.add_argument("-lr", dest="learning_rate", type=float, default=1E-3, help="Learning Rate (Default: 0.001, i.e 1E-3)")
+parser.add_argument("-wd", dest="weight_decay", type=float, default=1E-4, help="Weight Decay (Default: 0.0001, i.e 1E-4)")
+parser.add_argument("-mo", dest="momentum", type=float, default=0.9, help="Momentum (Default: 0.9)")
+parser.add_argument("-opt", dest="optimizer", type=str, default="Adam", help="Optimizer, e.g. Adam|RMSProp|SGD (Default: Adam)")
 
-    with torch.no_grad():
-        for x, y in loader:
-            x = x.to(device=device)
-            y = y.to(device=device)
+# Hyperparameters
+parser.add_argument("-c", dest="num_classes", type=int, default=8, help="Number of Classes (Default: 8)")
+parser.add_argument("-is", dest="img_size", type=int, default=200, help="Input image size (Default: 200)")
 
-            scores = model(x)
-            predictions = torch.tensor([1.0 if i >= 0.5 else 0.0 for i in scores]).to(device)
-            num_correct += (predictions == y).sum()
-            num_samples += predictions.size(0)
-    print(f"Got {num_correct} / {num_samples} with accuracy {float(num_correct)/float(num_samples)*100:.2f}")
+# Training process
+pretrained_parser = parser.add_mutually_exclusive_group(required=False)
+pretrained_parser.add_argument('--pretrained', dest='pretrained', action='store_true')
+pretrained_parser.add_argument('--no-pretrained', dest='pretrained', action='store_false')
+parser.set_defaults(pretrained=True)
 
-    # Note that after accuracy check we will continue training in search of
-    # better accuracy hence at the end the model is set to train mode again
-    model.train()
+full_train_parser = parser.add_mutually_exclusive_group(required=False)
+full_train_parser.add_argument('--full-train', dest='fullTrain', action='store_true')
+full_train_parser.add_argument('--no-full-train', dest='fullTrain', action='store_false')
+parser.set_defaults(fullTrain=False)
 
-    return f"{float(num_correct)/float(num_samples)*100:.2f}"
+# Miscellaneous
+parser.add_argument("-rs", dest="random_seed", type=int, default=42, help="Random Seed (Default: 42)")
+parser.add_argument("-w", dest="num_workers", type=int, default=0, help="Number of Workers (Default: 0)")
+parser.add_argument("-gpu", dest="gpu", type=int, default=0, help="Which GPU to use? (Default: 0)")
 
-
-# # Training Loop
-# def train():
-#     model.train()
-#     for epoch in range(EPOCHS):
-#         # leave=True ensures that the the older progress bars stay as the epochs progress
-#         # leave=False will make the older progress bars from the previous
-#         # epochs leave and display it only for the current epoch
-#         loop = tqdm(train_loader, total=len(train_loader), leave=True)
-#
-#         # if epoch % 2 == 0:
-#         #     loop.set_postfix(val_acc=check_accuracy(validation_loader, model))
-#
-#         for imgs, labels in loop:
-#             imgs = imgs.to(device)
-#             labels = labels.to(device)
-#
-#             outputs = model(imgs)
-#             loss = criterion(outputs, labels)
-#
-#             # before we do back-propagation to calculate gradients
-#             # we must perform the optimizer.zero_grad() operation
-#             # this empties the gradient tensors from previous batch so that
-#             # the gradients for the new batch are calculated a new
-#             optimizer.zero_grad()
-#
-#             # perform back-propagation
-#             loss.backward()
-#             # update the weight parameters with the newly calculated gradients
-#             optimizer.step()
-#
-#             loop.set_description(f"Epoch [{epoch+1}/{EPOCHS}]")
-#             loop.set_postfix(loss=loss.item())
-#
-#         if (epoch+1) % 2 == 0:
-#             loop.set_postfix(val_acc=check_accuracy(val_loader, model))
+args = parser.parse_args()
 
 
 def train_model(model_name, save_name=None, **kwargs):
@@ -96,6 +75,7 @@ def train_model(model_name, save_name=None, **kwargs):
                          # save the best checkpoint based on the maximum val_acc recorded. Saves only weights and not optimizer
                          checkpoint_callback=ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
                          gpus=1 if str(device) == "cuda:0" else 0,
+                         auto_select_gpus=True,
                          max_epochs=EPOCHS,
                          # log learning rate every epoch
                          callbacks=[LearningRateMonitor("epoch")],
@@ -110,7 +90,7 @@ def train_model(model_name, save_name=None, **kwargs):
         print(f"Found pretrained model at {pretrained_filename}, loading...")
         model = Trainer.load_from_checkpoint(pretrained_filename)
     else:
-        pl.seed_everything(42)
+        pl.seed_everything(RANDOM_SEED)
         model = Trainer(model_name=model_name, **kwargs)
         trainer.fit(model, train_loader, val_loader)
 
@@ -140,21 +120,24 @@ if __name__ == "__main__":
     MEAN_STD_PATH = "../data/8Classes-9041/mean_std_value_train.pkl"
     CHECKPOINT_PATH = "./ckpt/"
 
-    NUM_CLASSES = 8
-    RESIZE = (200, 200)
-    EPOCHS = 300
-    BATCH_SIZE = 8
-    LEARNING_RATE = 8e-4
-    NUM_WORKERS = 0
-    PRETRAINED = True
-    FULL_TRAIN = False
+    NUM_CLASSES = args.num_classes
+    # CNN|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet
+    MODEL_NAME = args.model
+    SAVE_NAME = args.save_name if args.save_name != "" else MODEL_NAME
 
-    # MODEL_NAME = "CNN"
-    # MODEL_NAME = "Inception"
-    # MODEL_NAME = "GoogleNet"
-    # MODEL_NAME = "ResNet"
-    # MODEL_NAME = "ResNetPreAct"
-    MODEL_NAME = "DenseNet"
+    BATCH_SIZE = args.batch_size
+    EPOCHS = args.epochs
+    LEARNING_RATE = args.learning_rate
+    WEIGHT_DECAY = args.weight_decay
+    MOMENTUM = args.momentum
+    OPTIMIZER = args.optimizer
+
+    PRETRAINED = args.pretrained
+    FULL_TRAIN = args.fullTrain
+
+    RESIZE = (args.img_size, args.img_size)
+    NUM_WORKERS = args.num_workers
+    RANDOM_SEED = args.random_seed
 
     if os.path.exists(MEAN_STD_PATH):
         with open(MEAN_STD_PATH, 'rb') as f:
@@ -198,10 +181,6 @@ if __name__ == "__main__":
                                   num_workers=NUM_WORKERS,
                                   pin_memory=True)
 
-    # model = CNN(num_classes=8).to(device)
-    # criterion = nn.CrossEntropyLoss()
-    # optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
     print("Number of train samples: ", len(train_data))
     print("Number of test samples: ", len(test_data))
     # classes are detected by folder structure
@@ -211,25 +190,37 @@ if __name__ == "__main__":
     if MODEL_NAME == "CNN":
         CNN_model, CNN_results = train_model(model_name=MODEL_NAME,
                                              model_hparams={"num_classes": NUM_CLASSES},
-                                             optimizer_name="Adam",
-                                             optimizer_hparams={"lr": LEARNING_RATE, "weight_decay": 0})
+                                             optimizer_name=OPTIMIZER,
+                                             optimizer_hparams={"lr": LEARNING_RATE,
+                                                                "weight_decay": WEIGHT_DECAY},
+                                             save_name=SAVE_NAME)
         print("Results", CNN_results)
+        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+            f.write(str(CNN_results))
 
     elif MODEL_NAME == "Inception":
         Inception_model, Inception_model_results = train_model(model_name=MODEL_NAME,
                                                                model_hparams={"num_classes": NUM_CLASSES,
                                                                               "full_train": FULL_TRAIN},
-                                                               optimizer_name="Adam",
-                                                               optimizer_hparams={"lr": LEARNING_RATE, "weight_decay": 0})
+                                                               optimizer_name=OPTIMIZER,
+                                                               optimizer_hparams={"lr": LEARNING_RATE,
+                                                                                  "weight_decay": WEIGHT_DECAY},
+                                                               save_name=SAVE_NAME)
         print("Results", Inception_model_results)
+        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+            f.write(str(Inception_model_results))
 
     elif MODEL_NAME == "GoogleNet":
         GoogleNet_model, GoogleNet_results = train_model(model_name=MODEL_NAME,
                                                          model_hparams={"num_classes": NUM_CLASSES,
                                                                         "act_fn_name": "relu"},
-                                                         optimizer_name="Adam",
-                                                         optimizer_hparams={"lr": LEARNING_RATE, "weight_decay": 0})
+                                                         optimizer_name=OPTIMIZER,
+                                                         optimizer_hparams={"lr": LEARNING_RATE,
+                                                                            "weight_decay": WEIGHT_DECAY},
+                                                         save_name=SAVE_NAME)
         print("Results", GoogleNet_results)
+        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+            f.write(str(GoogleNet_results))
 
     elif MODEL_NAME == "ResNet":
         ResNet_model, ResNet_results = train_model(model_name=MODEL_NAME,
@@ -237,11 +228,14 @@ if __name__ == "__main__":
                                                                   "c_hidden": [16, 32, 64],
                                                                   "num_blocks": [3, 3, 3],
                                                                   "act_fn_name": "relu"},
-                                                   optimizer_name="SGD",
-                                                   optimizer_hparams={"lr": 0.1,
-                                                                      "momentum": 0.9,
-                                                                      "weight_decay": 1e-4})
+                                                   optimizer_name=OPTIMIZER,
+                                                   optimizer_hparams={"lr": LEARNING_RATE,
+                                                                      "momentum": MOMENTUM,
+                                                                      "weight_decay": WEIGHT_DECAY},
+                                                   save_name=SAVE_NAME)
         print("Results", ResNet_results)
+        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+            f.write(str(ResNet_results))
 
     elif MODEL_NAME == "ResNetPreAct":
         # pre-activation ResNet
@@ -251,12 +245,14 @@ if __name__ == "__main__":
                                                                               "num_blocks": [3, 3, 3],
                                                                               "act_fn_name": "relu",
                                                                               "block_name": "PreActResNetBlock"},
-                                                               optimizer_name="SGD",
-                                                               optimizer_hparams={"lr": 0.1,
-                                                                                  "momentum": 0.9,
-                                                                                  "weight_decay": 1e-4},
+                                                               optimizer_name=OPTIMIZER,
+                                                               optimizer_hparams={"lr": LEARNING_RATE,
+                                                                                  "momentum": MOMENTUM,
+                                                                                  "weight_decay": WEIGHT_DECAY},
                                                                save_name="ResNetPreAct")
         print("Results", ResNetPreAct_results)
+        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+            f.write(str(ResNetPreAct_results))
 
     elif MODEL_NAME == "DenseNet":
         DenseNet_model, DenseNet_results = train_model(model_name=MODEL_NAME,
@@ -265,10 +261,13 @@ if __name__ == "__main__":
                                                                       "bn_size": 2,
                                                                       "growth_rate": 16,
                                                                       "act_fn_name": "relu"},
-                                                       optimizer_name="Adam",
-                                                       optimizer_hparams={"lr": 1e-3,
-                                                                          "weight_decay": 1e-4})
+                                                       optimizer_name=OPTIMIZER,
+                                                       optimizer_hparams={"lr": LEARNING_RATE,
+                                                                          "weight_decay": WEIGHT_DECAY},
+                                                       save_name=SAVE_NAME)
         print("{} Results", DenseNet_results)
+        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+            f.write(str(DenseNet_results))
 
     # just for test
     # model, results = train_model(model_name=MODEL_NAME,
