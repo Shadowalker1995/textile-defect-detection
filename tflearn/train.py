@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 import os
 
-from util import load_data, gen_label
+from ..util import load_data, gen_label
 
 
 def Network(class_num):
@@ -101,7 +101,7 @@ def main():
     # label_dict = gen_label()
     # print(label_dict)
 
-    X, Y = load_data(dirname="./data/8Classes-9041/all/", dataset_name='8Classes-9041-onehot.pkl',
+    X, Y = load_data(dirname="../data/8Classes-9041/all/", dataset_name='8Classes-9041-onehot.pkl',
                      one_hot=True, convert_gray=True)
     x, x_test, y, y_test = train_test_split(X, Y, test_size=0.2)
     x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=0.2)

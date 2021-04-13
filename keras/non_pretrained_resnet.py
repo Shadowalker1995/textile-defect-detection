@@ -42,8 +42,8 @@ def main():
     batch_size = 16
 
     # https://www.kaggle.com/paultimothymooney/blood-cells
-    train_path = './data_split/train'
-    valid_path = './data_split/val/'
+    train_path = '../data_split/train'
+    valid_path = '../data_split/val/'
 
     # useful for getting number of files
     image_file = glob(train_path + '/*/*.bmp')
