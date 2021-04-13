@@ -28,42 +28,65 @@ act_fn_by_name = {
 class CNN(nn.Module):
     def __init__(self, num_classes=1, **kwargs):
         super(CNN, self).__init__()
-        self.cnn_layers = Sequential(
+        self.conv_1 = Sequential(
             nn.ZeroPad2d((1, 0, 1, 0)),
             nn.Conv2d(3, 32, 2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.conv_2 = Sequential(
             nn.ZeroPad2d((1, 0, 1, 0)),
             nn.Conv2d(32, 64, 2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.conv_3 = Sequential(
             nn.ZeroPad2d((1, 0, 1, 0)),
             nn.Conv2d(64, 128, 2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.conv_4 = Sequential(
             nn.ZeroPad2d((1, 0, 1, 0)),
             nn.Conv2d(128, 256, 2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.conv_5 = Sequential(
             nn.ZeroPad2d((1, 0, 1, 0)),
             nn.Conv2d(256, 256, 2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.conv_6 = Sequential(
             nn.ZeroPad2d((1, 0, 1, 0)),
             nn.Conv2d(256, 128, 2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.conv_7 = Sequential(
             nn.ZeroPad2d((1, 0, 1, 0)),
             nn.Conv2d(128, 64, 2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.fc = Sequential(
             nn.Flatten(),
             nn.Linear(64, 1000),
             nn.Dropout(0.75),
             nn.Linear(1000, num_classes))
 
     def forward(self, x):
-        x = self.cnn_layers(x)
+        # 1 x 200 x 200 -> 32 x 100 x 100
+        x = self.conv_1(x)
+        # 32 x 200 x 200 -> 64 x 50 x 50
+        x = self.conv_2(x)
+        # 64 x 50 x 50 -> 128 x 25 x 25
+        x = self.conv_3(x)
+        # 128 x 25 x 25 -> 256 x 12 x 12
+        x = self.conv_4(x)
+        # 256 x 12 x 12 -> 256 x 6 x 6
+        x = self.conv_5(x)
+        # 256 x 6 x 6 -> 128 x 3 x 3
+        x = self.conv_6(x)
+        # 128 x 3 x 3 -> 64 x 1 x 1
+        x = self.conv_7(x)
+        # 64 x 1 x 1 -> 64 -> 1000 -> num_classes
+        x = self.fc(x)
+
         return x
 
 
