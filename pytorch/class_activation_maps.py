@@ -14,8 +14,10 @@ from torchvision.datasets import ImageFolder
 
 import numpy as np
 import os
+import sys
 import pickle
 import argparse
+from PIL import Image
 
 from Model import Trainer
 from utils import get_cam
@@ -26,6 +28,8 @@ parser = argparse.ArgumentParser()
 # Model
 parser.add_argument("-m", dest="model", type=str, default="CNN2",
                     help="Model Name, e.g. CNN|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet (Default: CNN2)")
+parser.add_argument("-sn", dest="save_name", type=str, default="",
+                    help="Specify the file name for saving model! (Default: "", i.e. Disabled)")
 
 # Hyperparameters
 parser.add_argument("-c", dest="num_classes", type=int, default=8, help="Number of Classes (Default: 8)")
@@ -48,8 +52,8 @@ def load_model(model_name, **kwargs):
         print(f"Found pretrained model at {pretrained_filename}, loading...")
         model = Trainer.load_from_checkpoint(pretrained_filename)
     else:
-        print(f"Found pretrained model at {pretrained_filename}, loading...")
-        return
+        print(f"Can not found pretrained model at {pretrained_filename}, exit...")
+        sys.exit()
 
     return model
 
@@ -73,6 +77,7 @@ if __name__ == "__main__":
     NUM_CLASSES = args.num_classes
     # CNN|CNN2|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet
     MODEL_NAME = args.model
+    SAVE_NAME = args.save_name if args.save_name != "" else MODEL_NAME
     RESIZE = (args.img_size, args.img_size)
     PRETRAINED = False
 
@@ -92,36 +97,61 @@ if __name__ == "__main__":
             ]
         )
 
-    test_data = ImageFolder(root=TEST_DATA_PATH, transform=transform_val)
+    SAVE_NAME = 'DenseNet'
 
-    print("Number of test samples: ", len(test_data))
-    # classes are detected by folder structure
-    print("Detected Classes are: ", test_data.class_to_idx)
+    if not os.path.exists(f'results/{SAVE_NAME}'):
+        os.mkdir(f'results/{SAVE_NAME}')
 
-    model = load_model(MODEL_NAME).cuda()
-    model = model._modules.get('model')
-    final_conv = ''
-    if MODEL_NAME == 'CNN2':
-        final_conv = 'conv_5'
+    model = load_model(SAVE_NAME).cuda()
+    model = model.model
 
-    # hook the feature extractor
-    features_blobs = []
-    model._modules.get(final_conv).register_forward_hook(hook_feature)
-
-    random_index = np.random.randint(len(test_data))
-    img_path = test_data.samples[random_index][0]
-    classes = test_data.classes
-
-    target = test_data[random_index][1]
-    classname = test_data.classes[target]
-    print('the ground truth class is', classname)
-
-    img = test_data[random_index][0]
-
-    get_cam(model, features_blobs, img, classes, img_path)
-
+    # model = model.cpu()
     # parm = {}
     # for name, parameters in model.named_parameters():
     #     print(name, ':', parameters.size())
     #     parm[name] = parameters.detach().numpy()
+
+    final_conv = ''
+    features_blobs = []
+    if SAVE_NAME == 'CNN2':
+        # hook the feature extractor
+        model.conv_5.register_forward_hook(hook_feature)
+    elif SAVE_NAME in ['Inception_no-pretrain_full', 'Inception_pretrain_full', 'Inception_pretrain_no-full']:
+        model.main_bone.Mixed_7c.register_forward_hook(hook_feature)
+    elif SAVE_NAME == 'GoogleNet':
+        model.inception_blocks._modules.get('9').register_forward_hook(hook_feature)
+    elif SAVE_NAME in ['ResNet', 'ResNetPreAct']:
+        model.blocks._modules.get('8').register_forward_hook(hook_feature)
+    elif SAVE_NAME == 'DenseNet':
+        model.blocks._modules.get('6').register_forward_hook(hook_feature)
+
+    # random select
+    # test_data = ImageFolder(root=TEST_DATA_PATH, transform=transform_val)
+    # random_index = np.random.randint(len(test_data))
+    # img_path = test_data.samples[random_index][0]
+    # classes = test_data.classes
+    #
+    # target = test_data[random_index][1]
+    # classname = test_data.classes[target]
+    # print('the ground truth class is', classname)
+    #
+    # img = test_data[random_index][0]
+    # get_cam(model, features_blobs, img, classes, img_path, SAVE_NAME)
+
+    # loop through
+    classes = ['Defect-Free',
+               'DOG',
+               'Broken-Pick',
+               'Creases',
+               'Kinky-Filling',
+               'Transfer-Knot',
+               'Stand-Indicator',
+               'End-Out']
+    for img_name in os.listdir('./samples'):
+        classname = img_name
+        print('the ground truth class is', classname)
+        img_path = os.path.join('./samples', img_name)
+        img = Image.open(img_path)
+        img = transform_val(img)
+        get_cam(model, features_blobs, img, classes, img_path, SAVE_NAME)
 

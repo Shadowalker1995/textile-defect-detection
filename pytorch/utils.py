@@ -30,7 +30,7 @@ def returnCAM(feature_conv, weight_softmax, class_idx):
     return output_cam
 
 
-def get_cam(model, features_blobs, img_tensor, classes, img_path):
+def get_cam(model, features_blobs, img_tensor, classes, img_path, model_name):
     model.eval()
     params = list(model.parameters())
     weight_softmax = np.squeeze(params[-2].data.cpu().numpy())
@@ -55,5 +55,5 @@ def get_cam(model, features_blobs, img_tensor, classes, img_path):
     CAM = cv2.resize(CAMs[0], (width, height))
     heatmap = cv2.applyColorMap(CAM, cv2.COLORMAP_JET)
     result = heatmap * 0.3 + img * 0.5
-    cv2.imwrite(f'results/{classes[idx[0].item()]}_CAM.jpg', result)
-    cv2.imwrite(f'results/{classes[idx[0].item()]}.jpg', img)
+    cv2.imwrite(f'results/{model_name}/{classes[idx[0].item()]}_CAM.jpg', result)
+    cv2.imwrite(f'results/{model_name}/{classes[idx[0].item()]}.jpg', img)
