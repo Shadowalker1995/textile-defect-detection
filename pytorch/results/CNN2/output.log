@@ -1,0 +1,81 @@
+Found pretrained model at ./ckpt/CNN2.ckpt, loading...
+the ground truth class is Defect-Free.bmp
+0.999 -> Defect-Free
+0.001 -> Kinky-Filling
+0.000 -> Creases
+0.000 -> DOG
+0.000 -> Broken-Pick
+0.000 -> End-Out
+0.000 -> Stand-Indicator
+0.000 -> Transfer-Knot
+output Defect-Free_CAM.jpg for the top1 prediction: Defect-Free
+the ground truth class is Stand-Indicator.bmp
+1.000 -> Stand-Indicator
+0.000 -> Broken-Pick
+0.000 -> DOG
+0.000 -> End-Out
+0.000 -> Kinky-Filling
+0.000 -> Defect-Free
+0.000 -> Creases
+0.000 -> Transfer-Knot
+output Stand-Indicator_CAM.jpg for the top1 prediction: Stand-Indicator
+the ground truth class is Transfer-Knot.bmp
+1.000 -> DOG
+0.000 -> Kinky-Filling
+0.000 -> Broken-Pick
+0.000 -> Stand-Indicator
+0.000 -> Transfer-Knot
+0.000 -> Creases
+0.000 -> End-Out
+0.000 -> Defect-Free
+output DOG_CAM.jpg for the top1 prediction: DOG
+the ground truth class is Creases.bmp
+1.000 -> Creases
+0.000 -> DOG
+0.000 -> Broken-Pick
+0.000 -> Stand-Indicator
+0.000 -> End-Out
+0.000 -> Transfer-Knot
+0.000 -> Kinky-Filling
+0.000 -> Defect-Free
+output Creases_CAM.jpg for the top1 prediction: Creases
+the ground truth class is Kinky-Filling.bmp
+0.553 -> Kinky-Filling
+0.369 -> Transfer-Knot
+0.078 -> Broken-Pick
+0.000 -> Creases
+0.000 -> DOG
+0.000 -> End-Out
+0.000 -> Stand-Indicator
+0.000 -> Defect-Free
+output Kinky-Filling_CAM.jpg for the top1 prediction: Kinky-Filling
+the ground truth class is DOG.bmp
+1.000 -> DOG
+0.000 -> Broken-Pick
+0.000 -> Stand-Indicator
+0.000 -> Creases
+0.000 -> End-Out
+0.000 -> Transfer-Knot
+0.000 -> Kinky-Filling
+0.000 -> Defect-Free
+output DOG_CAM.jpg for the top1 prediction: DOG
+the ground truth class is End-Out.bmp
+1.000 -> End-Out
+0.000 -> Broken-Pick
+0.000 -> Creases
+0.000 -> Transfer-Knot
+0.000 -> Stand-Indicator
+0.000 -> DOG
+0.000 -> Kinky-Filling
+0.000 -> Defect-Free
+output End-Out_CAM.jpg for the top1 prediction: End-Out
+the ground truth class is Broken-Pick.bmp
+0.999 -> Broken-Pick
+0.001 -> Transfer-Knot
+0.000 -> Kinky-Filling
+0.000 -> Creases
+0.000 -> End-Out
+0.000 -> Stand-Indicator
+0.000 -> DOG
+0.000 -> Defect-Free
+output Broken-Pick_CAM.jpg for the top1 prediction: Broken-Pick
