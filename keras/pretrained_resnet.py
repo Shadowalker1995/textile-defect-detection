@@ -177,7 +177,7 @@ def main():
     plt.savefig('accuracy.png')
     plt.show()
 
-    from util import plot_confusion_matrix
+    from utils import plot_confusion_matrix
     plot_confusion_matrix(cm, labels, title='Train confusion matrix', isSave=True)
     plot_confusion_matrix(valid_cm, labels, title='Validation confusion matrix', isSave=True)
 

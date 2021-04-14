@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 import os
 
-from ..util import load_data, gen_label
+from utils import load_data, gen_label
 
 
 def Network(class_num):

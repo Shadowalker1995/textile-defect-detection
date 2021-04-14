@@ -19,8 +19,7 @@ import pickle
 import argparse
 from PIL import Image
 
-from Model import Trainer
-from utils import get_cam
+from utils import get_cam, load_model
 
 
 parser = argparse.ArgumentParser()
@@ -41,23 +40,6 @@ parser.add_argument("-gpu", dest="gpu", type=int, default=0, help="Which GPU to 
 args = parser.parse_args()
 
 
-def load_model(model_name, **kwargs):
-    """
-    Inputs:
-        model_name - Name of the model you want to run. Is used to look up the class in "model_dict"
-        save_name (optional) - If specified, this name will be used for creating the checkpoint and logging directory.
-    """
-    pretrained_filename = os.path.join(CHECKPOINT_PATH, model_name + ".ckpt")
-    if os.path.isfile(pretrained_filename):
-        print(f"Found pretrained model at {pretrained_filename}, loading...")
-        model = Trainer.load_from_checkpoint(pretrained_filename)
-    else:
-        print(f"Can not found pretrained model at {pretrained_filename}, exit...")
-        sys.exit()
-
-    return model
-
-
 def hook_feature(module, input, output):
     features_blobs.append(output.data.cpu().numpy())
 
@@ -72,7 +54,7 @@ if __name__ == "__main__":
 
     TEST_DATA_PATH = "../data/8Classes-9041/test/"
     MEAN_STD_PATH = "../data/8Classes-9041/mean_std_value_train.pkl"
-    CHECKPOINT_PATH = "./ckpt/"
+    CKPT_PATH = "./ckpt/"
 
     NUM_CLASSES = args.num_classes
     # CNN|CNN2|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet
@@ -102,7 +84,7 @@ if __name__ == "__main__":
     if not os.path.exists(f'results/{SAVE_NAME}'):
         os.mkdir(f'results/{SAVE_NAME}')
 
-    model = load_model(SAVE_NAME).cuda()
+    model = load_model(CKPT_PATH, SAVE_NAME).cuda()
     model = model.model
 
     # model = model.cpu()
@@ -113,6 +95,7 @@ if __name__ == "__main__":
 
     final_conv = ''
     features_blobs = []
+
     if SAVE_NAME == 'CNN2':
         # hook the feature extractor
         model.conv_5.register_forward_hook(hook_feature)
