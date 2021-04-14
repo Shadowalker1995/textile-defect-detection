@@ -19,7 +19,7 @@ import os
 import pickle
 import argparse
 
-from Model import CNN, Trainer
+from Model import Trainer
 
 
 parser = argparse.ArgumentParser()
@@ -111,6 +111,13 @@ def train_model(model_name, save_name=None, **kwargs):
 
 
 if __name__ == "__main__":
+    # Setting the seed
+    pl.seed_everything(42)
+
+    # Ensure that all operations are deterministic on GPU (if used) for reproducibility
+    torch.backends.cudnn.determinstic = True
+    torch.backends.cudnn.benchmark = False
+
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
 
@@ -121,7 +128,7 @@ if __name__ == "__main__":
     CHECKPOINT_PATH = "./ckpt/"
 
     NUM_CLASSES = args.num_classes
-    # CNN|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet
+    # CNN|CNN2|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet
     MODEL_NAME = args.model
     SAVE_NAME = args.save_name if args.save_name != "" else MODEL_NAME
 
@@ -143,8 +150,6 @@ if __name__ == "__main__":
         with open(MEAN_STD_PATH, 'rb') as f:
             MEAN = pickle.load(f)
             STD = pickle.load(f)
-            # MEAN = MEAN[:1]
-            # STD = STD[:1]
             # print(MEAN)
             # print(STD)
             print('MEAN and STD load done')
@@ -162,19 +167,29 @@ if __name__ == "__main__":
             ]
         )
 
+    transform_val = transforms.Compose(
+            [
+                transforms.Grayscale(num_output_channels=3),
+                transforms.Resize(RESIZE),
+                transforms.CenterCrop(RESIZE),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=MEAN, std=STD),
+            ]
+        )
+
     train_data = ImageFolder(root=TRAIN_DATA_PATH, transform=transform)
     train_loader = data.DataLoader(dataset=train_data,
                                    batch_size=BATCH_SIZE,
                                    shuffle=True,
                                    num_workers=NUM_WORKERS,
                                    pin_memory=True)
-    val_data = ImageFolder(root=VAL_DATA_PATH, transform=transform)
+    val_data = ImageFolder(root=VAL_DATA_PATH, transform=transform_val)
     val_loader = data.DataLoader(dataset=val_data,
                                  batch_size=BATCH_SIZE,
                                  shuffle=False,
                                  num_workers=NUM_WORKERS,
                                  pin_memory=True)
-    test_data = ImageFolder(root=TEST_DATA_PATH, transform=transform)
+    test_data = ImageFolder(root=TEST_DATA_PATH, transform=transform_val)
     test_loader = data.DataLoader(dataset=test_data,
                                   batch_size=BATCH_SIZE,
                                   shuffle=False,
@@ -197,6 +212,17 @@ if __name__ == "__main__":
         print("Results", CNN_results)
         with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
             f.write(str(CNN_results))
+
+    elif MODEL_NAME == "CNN2":
+        CNN2_model, CNN2_results = train_model(model_name=MODEL_NAME,
+                                               model_hparams={"num_classes": NUM_CLASSES},
+                                               optimizer_name=OPTIMIZER,
+                                               optimizer_hparams={"lr": LEARNING_RATE,
+                                                                  "weight_decay": WEIGHT_DECAY},
+                                               save_name=SAVE_NAME)
+        print("Results", CNN2_results)
+        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+            f.write(str(CNN2_results))
 
     elif MODEL_NAME == "Inception":
         Inception_model, Inception_model_results = train_model(model_name=MODEL_NAME,

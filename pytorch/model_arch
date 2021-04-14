@@ -1,0 +1,44 @@
+Trainer(
+  (model): CNN2(
+    (conv_1): BasicConv2d(
+      (conv): Conv2d(3, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn): BatchNorm2d(32, eps=0.001, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (conv_2): BasicConv2d(
+      (conv): Conv2d(32, 64, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn): BatchNorm2d(64, eps=0.001, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (conv_3): BasicConv2d(
+      (conv): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn): BatchNorm2d(128, eps=0.001, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (conv_4): BasicConv2d(
+      (conv): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn): BatchNorm2d(256, eps=0.001, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (conv_5): BasicConv2d(
+      (conv): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn): BatchNorm2d(512, eps=0.001, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (fc): Linear(in_features=512, out_features=8, bias=True)
+  )
+  (criterion): CrossEntropyLoss()
+)
+
+model.conv_1.conv.weight : torch.Size([32, 3, 3, 3])
+model.conv_1.bn.weight : torch.Size([32])
+model.conv_1.bn.bias : torch.Size([32])
+model.conv_2.conv.weight : torch.Size([64, 32, 3, 3])
+model.conv_2.bn.weight : torch.Size([64])
+model.conv_2.bn.bias : torch.Size([64])
+model.conv_3.conv.weight : torch.Size([128, 64, 3, 3])
+model.conv_3.bn.weight : torch.Size([128])
+model.conv_3.bn.bias : torch.Size([128])
+model.conv_4.conv.weight : torch.Size([256, 128, 3, 3])
+model.conv_4.bn.weight : torch.Size([256])
+model.conv_4.bn.bias : torch.Size([256])
+model.conv_5.conv.weight : torch.Size([512, 256, 3, 3])
+model.conv_5.bn.weight : torch.Size([512])
+model.conv_5.bn.bias : torch.Size([512])
+model.fc.weight : torch.Size([8, 512])
+model.fc.bias : torch.Size([8])

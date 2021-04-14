@@ -10,6 +10,7 @@ Date:		2021-04-09 19:50:26
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import pytorch_lightning as pl
 import torch.optim as optim
 from torch.nn import Sequential
@@ -70,9 +71,9 @@ class CNN(nn.Module):
             nn.Linear(1000, num_classes))
 
     def forward(self, x):
-        # 1 x 200 x 200 -> 32 x 100 x 100
+        # 3 x 200 x 200 -> 32 x 100 x 100
         x = self.conv_1(x)
-        # 32 x 200 x 200 -> 64 x 50 x 50
+        # 32 x 100 x 100 -> 64 x 50 x 50
         x = self.conv_2(x)
         # 64 x 50 x 50 -> 128 x 25 x 25
         x = self.conv_3(x)
@@ -85,6 +86,51 @@ class CNN(nn.Module):
         # 128 x 3 x 3 -> 64 x 1 x 1
         x = self.conv_7(x)
         # 64 x 1 x 1 -> 64 -> 1000 -> num_classes
+        x = self.fc(x)
+
+        return x
+
+
+class BasicConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, **kwargs):
+        super(BasicConv2d, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, bias=False, **kwargs)
+        self.bn = nn.BatchNorm2d(out_channels, eps=0.001)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        return F.relu(x, inplace=True)
+
+
+class CNN2(nn.Module):
+    def __init__(self, num_classes=1, **kwargs):
+        super(CNN2, self).__init__()
+        self.conv_1 = BasicConv2d(3, 32, kernel_size=3, stride=2, padding=1)
+        self.conv_2 = BasicConv2d(32, 64, kernel_size=3, stride=2, padding=1)
+        self.conv_3 = BasicConv2d(64, 128, kernel_size=3, stride=2, padding=1)
+        self.conv_4 = BasicConv2d(128, 256, kernel_size=3, stride=2, padding=1)
+        self.conv_5 = BasicConv2d(256, 512, kernel_size=3, stride=2, padding=1)
+        self.fc = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        # 3 x 200 x 200 -> 32 x 100 x 100
+        x = self.conv_1(x)
+        # 32 x 100 x 100 -> 64 x 50 x 50
+        x = self.conv_2(x)
+        # 64 x 50 x 50 -> 128 x 25 x 25
+        x = self.conv_3(x)
+        # 128 x 25 x 25 -> 256 x 13 x 13
+        x = self.conv_4(x)
+        # 256 x 13 x 13 -> 512 x 7 x 7
+        x = self.conv_5(x)
+        # 512 x 7 x 7 -> 512 x 1 x 1
+        x = F.avg_pool2d(x, kernel_size=7)
+        # 512 x 1 x 1 -> 512 x 1 x 1
+        x = F.dropout(x, p=0.75)
+        # 512 x 1 x 1 -> 512
+        x = x.view(x.size()[0], -1)
+        # 512 -> num_classes
         x = self.fc(x)
 
         return x
@@ -503,6 +549,7 @@ class DenseNet(nn.Module):
 def create_model(model_name, model_hparams):
     model_dict = {
         "CNN": CNN,
+        "CNN2": CNN2,
         "Inception": Inception,
         "GoogleNet": GoogleNet,
         "ResNet": ResNet,
