@@ -12,9 +12,8 @@ import torch
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 
-import numpy as np
 import os
-import sys
+import numpy as np
 import pickle
 import argparse
 from PIL import Image

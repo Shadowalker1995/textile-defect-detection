@@ -9,24 +9,21 @@ Date:		2021-04-11 03:09:28
 """
 
 import torch
-import torch.utils.data as data
-import torchvision.transforms as transforms
-from torchvision.datasets import ImageFolder
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
 import os
-import pickle
 import argparse
 
 from Model import Trainer
+from utils import load_data
 
 
 parser = argparse.ArgumentParser()
 
 # Model
-parser.add_argument("-m", dest="model", type=str, default="CNN",
-                    help="Model Name, e.g. CNN|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet (Default: CNN)")
+parser.add_argument("-m", dest="model", type=str, default="CNN2",
+                    help="Model Name, e.g. CNN2|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet (Default: CNN2)")
 parser.add_argument("-sn", dest="save_name", type=str, default="",
                     help="Specify the file name for saving model! (Default: "", i.e. Disabled)")
 
@@ -71,7 +68,7 @@ def train_model(model_name, save_name=None, **kwargs):
         save_name = model_name
 
     # create a PyTorch Lightning trainer with the generation callback
-    trainer = pl.Trainer(default_root_dir=os.path.join(CHECKPOINT_PATH, save_name),
+    trainer = pl.Trainer(default_root_dir=os.path.join(CKPT_PATH, save_name),
                          # save the best checkpoint based on the maximum val_acc recorded. Saves only weights and not optimizer
                          checkpoint_callback=ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
                          gpus=1 if str(device) == "cuda:0" else 0,
@@ -85,7 +82,7 @@ def train_model(model_name, save_name=None, **kwargs):
     # optional logging argument that we don't need
     trainer.logger._default_hp_metric = None
 
-    pretrained_filename = os.path.join(CHECKPOINT_PATH, save_name + ".ckpt")
+    pretrained_filename = os.path.join(CKPT_PATH, save_name + ".ckpt")
     if os.path.isfile(pretrained_filename):
         print(f"Found pretrained model at {pretrained_filename}, loading...")
         model = Trainer.load_from_checkpoint(pretrained_filename)
@@ -121,11 +118,7 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
 
-    TRAIN_DATA_PATH = "../data/8Classes-9041/train/"
-    VAL_DATA_PATH = "../data/8Classes-9041/val/"
-    TEST_DATA_PATH = "../data/8Classes-9041/test/"
-    MEAN_STD_PATH = "../data/8Classes-9041/mean_std_value_train.pkl"
-    CHECKPOINT_PATH = "./ckpt/"
+    CKPT_PATH = "./ckpt/"
 
     NUM_CLASSES = args.num_classes
     # CNN|CNN2|Inception|GoogleNet|ResNet|ResNetPreAct|DenseNet
@@ -146,55 +139,7 @@ if __name__ == "__main__":
     NUM_WORKERS = args.num_workers
     RANDOM_SEED = args.random_seed
 
-    if os.path.exists(MEAN_STD_PATH):
-        with open(MEAN_STD_PATH, 'rb') as f:
-            MEAN = pickle.load(f)
-            STD = pickle.load(f)
-            # print(MEAN)
-            # print(STD)
-            print('MEAN and STD load done')
-
-    transform = transforms.Compose(
-            [
-                transforms.Grayscale(num_output_channels=3),
-                transforms.Resize(RESIZE),
-                transforms.CenterCrop(RESIZE),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomVerticalFlip(),
-                # transforms.RandomRotation(0.1),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=MEAN, std=STD),
-            ]
-        )
-
-    transform_val = transforms.Compose(
-            [
-                transforms.Grayscale(num_output_channels=3),
-                transforms.Resize(RESIZE),
-                transforms.CenterCrop(RESIZE),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=MEAN, std=STD),
-            ]
-        )
-
-    train_data = ImageFolder(root=TRAIN_DATA_PATH, transform=transform)
-    train_loader = data.DataLoader(dataset=train_data,
-                                   batch_size=BATCH_SIZE,
-                                   shuffle=True,
-                                   num_workers=NUM_WORKERS,
-                                   pin_memory=True)
-    val_data = ImageFolder(root=VAL_DATA_PATH, transform=transform_val)
-    val_loader = data.DataLoader(dataset=val_data,
-                                 batch_size=BATCH_SIZE,
-                                 shuffle=False,
-                                 num_workers=NUM_WORKERS,
-                                 pin_memory=True)
-    test_data = ImageFolder(root=TEST_DATA_PATH, transform=transform_val)
-    test_loader = data.DataLoader(dataset=test_data,
-                                  batch_size=BATCH_SIZE,
-                                  shuffle=False,
-                                  num_workers=NUM_WORKERS,
-                                  pin_memory=True)
+    train_loader, val_loader, test_loader, train_data, val_data, test_data = load_data(BATCH_SIZE, RESIZE, NUM_WORKERS)
 
     print("Number of train samples: ", len(train_data))
     print("Number of test samples: ", len(test_data))
@@ -210,7 +155,7 @@ if __name__ == "__main__":
                                                                 "weight_decay": WEIGHT_DECAY},
                                              save_name=SAVE_NAME)
         print("Results", CNN_results)
-        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+        with open(os.path.join(CKPT_PATH, SAVE_NAME + ".log"), "w") as f:
             f.write(str(CNN_results))
 
     elif MODEL_NAME == "CNN2":
@@ -221,7 +166,7 @@ if __name__ == "__main__":
                                                                   "weight_decay": WEIGHT_DECAY},
                                                save_name=SAVE_NAME)
         print("Results", CNN2_results)
-        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+        with open(os.path.join(CKPT_PATH, SAVE_NAME + ".log"), "w") as f:
             f.write(str(CNN2_results))
 
     elif MODEL_NAME == "Inception":
@@ -233,7 +178,7 @@ if __name__ == "__main__":
                                                                                   "weight_decay": WEIGHT_DECAY},
                                                                save_name=SAVE_NAME)
         print("Results", Inception_model_results)
-        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+        with open(os.path.join(CKPT_PATH, SAVE_NAME + ".log"), "w") as f:
             f.write(str(Inception_model_results))
 
     elif MODEL_NAME == "GoogleNet":
@@ -245,7 +190,7 @@ if __name__ == "__main__":
                                                                             "weight_decay": WEIGHT_DECAY},
                                                          save_name=SAVE_NAME)
         print("Results", GoogleNet_results)
-        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+        with open(os.path.join(CKPT_PATH, SAVE_NAME + ".log"), "w") as f:
             f.write(str(GoogleNet_results))
 
     elif MODEL_NAME == "ResNet":
@@ -260,7 +205,7 @@ if __name__ == "__main__":
                                                                       "weight_decay": WEIGHT_DECAY},
                                                    save_name=SAVE_NAME)
         print("Results", ResNet_results)
-        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+        with open(os.path.join(CKPT_PATH, SAVE_NAME + ".log"), "w") as f:
             f.write(str(ResNet_results))
 
     elif MODEL_NAME == "ResNetPreAct":
@@ -277,7 +222,7 @@ if __name__ == "__main__":
                                                                                   "weight_decay": WEIGHT_DECAY},
                                                                save_name="ResNetPreAct")
         print("Results", ResNetPreAct_results)
-        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+        with open(os.path.join(CKPT_PATH, SAVE_NAME + ".log"), "w") as f:
             f.write(str(ResNetPreAct_results))
 
     elif MODEL_NAME == "DenseNet":
@@ -292,7 +237,7 @@ if __name__ == "__main__":
                                                                           "weight_decay": WEIGHT_DECAY},
                                                        save_name=SAVE_NAME)
         print("{} Results", DenseNet_results)
-        with open(os.path.join(CHECKPOINT_PATH, SAVE_NAME + ".log"), "w") as f:
+        with open(os.path.join(CKPT_PATH, SAVE_NAME + ".log"), "w") as f:
             f.write(str(DenseNet_results))
 
     # just for test

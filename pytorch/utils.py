@@ -8,15 +8,23 @@ Email:	henry664650770@gmail.com
 Date:		2021-04-13 15:50:23
 """
 
+import torch
 from torch.autograd import Variable
 from torch.nn import functional as F
-from Model import Trainer
+import torch.utils.data as data
+import torchvision.transforms as transforms
+from torchvision.datasets import ImageFolder
+
 import numpy as np
 import os
 import cv2
 import sys
 import itertools
+import pickle
 import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+from Model import Trainer
 
 
 def returnCAM(feature_conv, weight_softmax, class_idx):
@@ -81,10 +89,28 @@ def load_model(ckpt_path, model_name, **kwargs):
     return model
 
 
+def get_confusion_matrix(model, data_loader, num_classes, device, verbose=False):
+        print("Generating confusion matrix...")
+        confusion_matrix = torch.zeros(num_classes, num_classes, dtype=torch.int32)
+        with torch.no_grad():
+            loop = tqdm(data_loader, total=len(data_loader), leave=True)
+            for imgs, labels in loop:
+                imgs = imgs.to(device)
+                labels = labels.to(device)
+                outputs = model(imgs)
+                preds = outputs.argmax(dim=-1)
+                for t, p in zip(labels.view(-1), preds.view(-1)):
+                    confusion_matrix[t.long(), p.long()] += 1
+        if verbose:
+            print(confusion_matrix)
+        return confusion_matrix.numpy()
+
+
 def plot_confusion_matrix(cm, classes,
                           normalize=False,
                           title='Confusion matrix',
                           isSave=False,
+                          save_path='',
                           cmap=plt.cm.Blues):
     """
     This function prints and plots the confusion matrix.
@@ -116,5 +142,61 @@ def plot_confusion_matrix(cm, classes,
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
     if isSave:
-        plt.savefig('{}.png'.format(title))
+        plt.savefig(save_path + '{}.png'.format(title))
     plt.show()
+
+
+def load_data(batch_size, resize, num_workers):
+    TRAIN_DATA_PATH = "../data/8Classes-9041/train/"
+    VAL_DATA_PATH = "../data/8Classes-9041/val/"
+    TEST_DATA_PATH = "../data/8Classes-9041/test/"
+    MEAN_STD_PATH = "../data/8Classes-9041/mean_std_value_train.pkl"
+
+    if os.path.exists(MEAN_STD_PATH):
+        with open(MEAN_STD_PATH, 'rb') as f:
+            MEAN = pickle.load(f)
+            STD = pickle.load(f)
+            print('MEAN and STD load done')
+
+    transform = transforms.Compose(
+            [
+                transforms.Grayscale(num_output_channels=3),
+                transforms.Resize(resize),
+                transforms.CenterCrop(resize),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomVerticalFlip(),
+                # transforms.RandomRotation(0.1),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=MEAN, std=STD),
+            ]
+        )
+
+    transform_val = transforms.Compose(
+            [
+                transforms.Grayscale(num_output_channels=3),
+                transforms.Resize(resize),
+                transforms.CenterCrop(resize),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=MEAN, std=STD),
+            ]
+        )
+    train_data = ImageFolder(root=TRAIN_DATA_PATH, transform=transform)
+    train_loader = data.DataLoader(dataset=train_data,
+                                   batch_size=batch_size,
+                                   shuffle=True,
+                                   num_workers=num_workers,
+                                   pin_memory=True)
+    val_data = ImageFolder(root=VAL_DATA_PATH, transform=transform_val)
+    val_loader = data.DataLoader(dataset=val_data,
+                                 batch_size=batch_size,
+                                 shuffle=True,
+                                 num_workers=num_workers,
+                                 pin_memory=True)
+    test_data = ImageFolder(root=TEST_DATA_PATH, transform=transform_val)
+    test_loader = data.DataLoader(dataset=test_data,
+                                  batch_size=batch_size,
+                                  shuffle=True,
+                                  num_workers=num_workers,
+                                  pin_memory=True)
+
+    return train_loader, val_loader, test_loader, train_data, val_data, test_data
