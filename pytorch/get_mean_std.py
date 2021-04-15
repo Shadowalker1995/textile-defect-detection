@@ -15,7 +15,7 @@ import torchvision.transforms as transforms
 import pickle
 
 
-class Dataloader():
+class Dataloader:
     def __init__(self, root='./data/', resize=(256, 256), channel_num=3):
         self.dirs = ['train', 'val', 'test']
 
@@ -44,7 +44,6 @@ class Dataloader():
 
         self.dataset = {x: ImageFolder(os.path.join(root, x), self.transform) for x in self.dirs}
 
-
     def get_mean_std(self, type, mean_std_path):
         """
         calculate the mean and std of the dataset
@@ -72,7 +71,8 @@ class Dataloader():
 
 
 if __name__ == "__main__":
-    dataloader = Dataloader(root="../data/8Classes-9041/", resize=(200, 200), channel_num=1)
+    root_path = "../data/8Classes-9041_hist/"
+    dataloader = Dataloader(root=root_path, resize=(200, 200), channel_num=3)
     for x in dataloader.dirs:
-        mean_std_path = 'mean_std_value_' + x + '.pkl'
+        mean_std_path = root_path + 'mean_std_value_' + x + '.pkl'
         dataloader.get_mean_std(x, mean_std_path)

@@ -13,7 +13,7 @@
 echo ===========
 echo "SimpleInception"
 echo ===========
-python train.py -m "SimpleInception" -bs 32 -e 200 -lr 1E-3 -wd 1E-4 -opt "Adam" -rs 42 -w 0
+python train.py -m "SimpleInception" -bs 512 -e 200 -lr 1E-3 -wd 1E-4 -opt "Adam" -rs 42 -w 0
 
 # echo ===========
 # echo "Inception_pretrain_full"
