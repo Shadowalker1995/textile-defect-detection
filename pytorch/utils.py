@@ -147,10 +147,10 @@ def plot_confusion_matrix(cm, classes,
 
 
 def load_data(batch_size, resize, num_workers):
-    TRAIN_DATA_PATH = "../data/8Classes-9041/train/"
-    VAL_DATA_PATH = "../data/8Classes-9041/val/"
-    TEST_DATA_PATH = "../data/8Classes-9041/test/"
-    MEAN_STD_PATH = "../data/8Classes-9041/mean_std_value_train.pkl"
+    TRAIN_DATA_PATH = "../data/8Classes-9041_hist/train/"
+    VAL_DATA_PATH = "../data/8Classes-9041_hist/val/"
+    TEST_DATA_PATH = "../data/8Classes-9041_hist/test/"
+    MEAN_STD_PATH = "../data/8Classes-9041_hist/mean_std_value_train.pkl"
 
     if os.path.exists(MEAN_STD_PATH):
         with open(MEAN_STD_PATH, 'rb') as f:
@@ -160,7 +160,7 @@ def load_data(batch_size, resize, num_workers):
 
     transform = transforms.Compose(
             [
-                transforms.Grayscale(num_output_channels=3),
+                # transforms.Grayscale(num_output_channels=3),
                 transforms.Resize(resize),
                 transforms.CenterCrop(resize),
                 transforms.RandomHorizontalFlip(),
@@ -173,7 +173,7 @@ def load_data(batch_size, resize, num_workers):
 
     transform_val = transforms.Compose(
             [
-                transforms.Grayscale(num_output_channels=3),
+                # transforms.Grayscale(num_output_channels=3),
                 transforms.Resize(resize),
                 transforms.CenterCrop(resize),
                 transforms.ToTensor(),
