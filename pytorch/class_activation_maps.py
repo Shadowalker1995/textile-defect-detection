@@ -78,7 +78,7 @@ if __name__ == "__main__":
             ]
         )
 
-    SAVE_NAME = 'DenseNet'
+    SAVE_NAME = 'CNN2'
 
     if not os.path.exists(f'results/{SAVE_NAME}'):
         os.mkdir(f'results/{SAVE_NAME}')
@@ -111,6 +111,7 @@ if __name__ == "__main__":
     # test_data = ImageFolder(root=TEST_DATA_PATH, transform=transform_val)
     # random_index = np.random.randint(len(test_data))
     # img_path = test_data.samples[random_index][0]
+    # print(img_path)
     # classes = test_data.classes
     #
     # target = test_data[random_index][1]
@@ -136,4 +137,3 @@ if __name__ == "__main__":
         img = Image.open(img_path)
         img = transform_val(img)
         get_cam(model, features_blobs, img, classes, img_path, SAVE_NAME)
-

@@ -169,6 +169,18 @@ if __name__ == "__main__":
         with open(os.path.join(CKPT_PATH, SAVE_NAME + ".log"), "w") as f:
             f.write(str(CNN2_results))
 
+    elif MODEL_NAME == "SimpleInception":
+        SimInception_model, SimInception_results = train_model(model_name=MODEL_NAME,
+                                                               model_hparams={"num_classes": NUM_CLASSES,
+                                                                              "act_fn_name": "relu"},
+                                                               optimizer_name=OPTIMIZER,
+                                                               optimizer_hparams={"lr": LEARNING_RATE,
+                                                                                  "weight_decay": WEIGHT_DECAY},
+                                                               save_name=SAVE_NAME)
+        print("Results", SimInception_results)
+        with open(os.path.join(CKPT_PATH, SAVE_NAME + ".log"), "w") as f:
+            f.write(str(SimInception_results))
+
     elif MODEL_NAME == "Inception":
         Inception_model, Inception_model_results = train_model(model_name=MODEL_NAME,
                                                                model_hparams={"num_classes": NUM_CLASSES,

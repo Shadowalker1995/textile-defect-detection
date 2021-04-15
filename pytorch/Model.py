@@ -92,25 +92,28 @@ class CNN(nn.Module):
 
 
 class BasicConv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, **kwargs):
+    def __init__(self, in_channels, out_channels, act_fn, **kwargs):
         super(BasicConv2d, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, bias=False, **kwargs)
+        self.conv = nn.Conv2d(in_channels, out_channels, **kwargs)
         self.bn = nn.BatchNorm2d(out_channels, eps=0.001)
+        self.act_fn = act_fn()
 
     def forward(self, x):
         x = self.conv(x)
         x = self.bn(x)
-        return F.relu(x, inplace=True)
+        x = self.act_fn(x)
+        return x
 
 
 class CNN2(nn.Module):
     def __init__(self, num_classes=1, **kwargs):
         super(CNN2, self).__init__()
-        self.conv_1 = BasicConv2d(3, 32, kernel_size=3, stride=2, padding=1)
-        self.conv_2 = BasicConv2d(32, 64, kernel_size=3, stride=2, padding=1)
-        self.conv_3 = BasicConv2d(64, 128, kernel_size=3, stride=2, padding=1)
-        self.conv_4 = BasicConv2d(128, 256, kernel_size=3, stride=2, padding=1)
-        self.conv_5 = BasicConv2d(256, 512, kernel_size=3, stride=2, padding=1)
+        self.act_fn = nn.ReLU
+        self.conv_1 = BasicConv2d(3, 32, self.act_fn, kernel_size=3, stride=2, padding=1)
+        self.conv_2 = BasicConv2d(32, 64, self.act_fn, kernel_size=3, stride=2, padding=1)
+        self.conv_3 = BasicConv2d(64, 128, self.act_fn, kernel_size=3, stride=2, padding=1)
+        self.conv_4 = BasicConv2d(128, 256, self.act_fn, kernel_size=3, stride=2, padding=1)
+        self.conv_5 = BasicConv2d(256, 512, self.act_fn, kernel_size=3, stride=2, padding=1)
         self.fc = nn.Linear(512, num_classes)
 
     def forward(self, x):
@@ -133,6 +136,125 @@ class CNN2(nn.Module):
         # 512 -> num_classes
         x = self.fc(x)
 
+        return x
+
+
+class SimpleInceptionBlock(nn.Module):
+    def __init__(self, c_in, c_red: dict, c_out: dict, act_fn, **kwargs):
+        """
+        Inputs:
+            c_in - Number of input feature maps from the previous layers
+            c_red - Dictionary with keys "3x3" and "5x5" specifying the output of the dimensionality reducing 1x1 convolutions
+            c_out - Dictionary with keys "1x1", "3x3", "5x5", and "max"
+            act_fn - Activation class constructor (e.g. nn.ReLU)
+        """
+        super().__init__()
+        # 1x1 convolution branch
+        self.conv_1x1_a = BasicConv2d(c_in, c_red["1x1"], act_fn, kernel_size=1)
+        self.conv_1x1_b = BasicConv2d(c_red["1x1"], c_out["1x1"], act_fn, kernel_size=3, stride=2)
+        # 3x3 convolution branch
+        self.conv_3x3_a = BasicConv2d(c_in, c_red["3x3"], act_fn, kernel_size=1)
+        self.conv_3x3_b = BasicConv2d(c_red["3x3"], c_red["3x3"]//2, act_fn, kernel_size=(1, 3), padding=(0, 1))
+        self.conv_3x3_c = BasicConv2d(c_red["3x3"], c_red["3x3"]//2, act_fn, kernel_size=(3, 1), padding=(1, 0))
+        self.conv_3x3_d = BasicConv2d(c_red["3x3"], c_out["3x3"], act_fn, kernel_size=3, stride=2)
+        # 5x5 convolution branch
+        self.conv_5x5_a = BasicConv2d(c_in, c_red["5x5"], act_fn, kernel_size=1)
+        self.conv_5x5_b = BasicConv2d(c_red["5x5"], c_red["5x5"]//2, act_fn, kernel_size=(1, 5), padding=(0, 2))
+        self.conv_5x5_c = BasicConv2d(c_red["5x5"], c_red["5x5"]//2, act_fn, kernel_size=(5, 1), padding=(2, 0))
+        self.conv_5x5_d = BasicConv2d(c_red["5x5"], c_out["5x5"], act_fn, kernel_size=3, stride=2)
+        # Max-pool branch
+        self.max_pool = nn.MaxPool2d(kernel_size=3, padding=1, stride=1)
+        self.conv_max = BasicConv2d(c_in, c_out["max"], act_fn, kernel_size=3, stride=2)
+
+    def forward(self, x):
+        # c_in x sz x sz -> c_red_1x1 x sz x sz
+        # c_red_1x1 x sz x sz -> c_out_1x1 x sz/2 x sz/2
+        x_1x1 = self.conv_1x1_a(x)
+        x_1x1 = self.conv_1x1_b(x_1x1)
+
+        # c_in x sz x sz -> c_red_3x3 x sz x sz
+        # c_red_3x3 x sz x sz -> c_red_3x3/2 x sz x sz | c_red_3x3 x sz x sz -> c_red_3x3/2 x sz x sz
+        # (c_red_3x3 / 2 * 2)=c_red_3x3 x sz x sz
+        # c_red_3x3 x sz x sz -> c_out_3x3 x sz/2 x sz/2
+        x_3x3 = self.conv_3x3_a(x)
+        x_3x3 = [
+            self.conv_3x3_b(x_3x3),
+            self.conv_3x3_c(x_3x3),
+        ]
+        x_3x3 = torch.cat(x_3x3, dim=1)
+        x_3x3 = self.conv_3x3_d(x_3x3)
+
+        # c_in x sz x sz -> c_red_5x5 x sz x sz
+        # c_red_5x5 x sz x sz -> c_red_5x5/2 x sz x sz | c_red_5x5 x sz x sz -> c_red_5x5/2 x sz x sz
+        # (c_red_5x5 / 2 * 2)=c_red_5x5 x sz x sz
+        # c_red_5x5 x sz x sz -> c_out_5x5 x sz/2 x sz/2
+        x_5x5 = self.conv_5x5_a(x)
+        x_5x5 = [
+            self.conv_5x5_b(x_5x5),
+            self.conv_5x5_c(x_5x5),
+        ]
+        x_5x5 = torch.cat(x_5x5, dim=1)
+        x_5x5 = self.conv_5x5_d(x_5x5)
+
+        # c_in x sz x sz -> c_in x sz x sz
+        # c_in x sz x sz -> c_out_max x sz/2 x sz/2
+        x_max = self.max_pool(x)
+        x_max = self.conv_max(x_max)
+
+        # (c_out_1x1 + c_out_3x3 + c_out_5x5 + c_out_max) x sz/2 x sz/2
+        x_out = torch.cat([x_1x1, x_3x3, x_5x5, x_max], dim=1)
+        return x_out
+
+
+class SimpleInception(nn.Module):
+    def __init__(self, num_classes=1, act_fn_name="relu", **kwargs):
+        super(SimpleInception, self).__init__()
+        self.hparams = SimpleNamespace(num_classes=num_classes,
+                                       act_fn_name=act_fn_name,
+                                       act_fn=act_fn_by_name[act_fn_name])
+        self._create_network()
+        self._init_params()
+
+    def _create_network(self):
+        # A first convolution on the original image to scale up the channel size
+        self.input_net = nn.Sequential(
+            BasicConv2d(3, 32, act_fn=self.hparams.act_fn, kernel_size=3, stride=2, padding=1),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+            BasicConv2d(32, 64, act_fn=self.hparams.act_fn, kernel_size=3, stride=2, padding=1),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=0),
+        )
+        # Stacking inception blocks
+        self.inception_block = SimpleInceptionBlock(64,
+                                                    c_red={"1x1": 16, "3x3": 32, "5x5": 16},
+                                                    c_out={"1x1": 16, "3x3": 32, "5x5": 8, "max": 8},
+                                                    act_fn=self.hparams.act_fn)
+        # Mapping to classification output
+        self.output_net = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Linear(64, self.hparams.num_classes)
+        )
+
+    def _init_params(self):
+        # initialize the convolutions according to the activation function
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, nonlinearity=self.hparams.act_fn_name)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def forward(self, x):
+        # 3 x 200 x 200 -> 32 x 100 x 100
+        # 32 x 100 x 100 -> 32 x 50 x 50
+        # 32 x 50 x 50 -> 64 x 25 x 25
+        # 64 x 25 x 25 -> 64 x 12 x 12
+        x = self.input_net(x)
+        # 64 x 12 x 12 -> (16+32+8+8)=64 x 6 x 6
+        x = self.inception_block(x)
+        # 64 x 6 x 6 -> 64 x 1 x 1
+        # 64 x 1 x 1 -> 64 > num_classes
+        x = self.output_net(x)
         return x
 
 
@@ -192,10 +314,17 @@ class InceptionBlock(nn.Module):
         )
 
     def forward(self, x):
+        # c_in x sz x sz -> c_out_1x1 x sz x sz
         x_1x1 = self.conv_1x1(x)
+        # c_in x sz x sz -> c_red_3x3 x sz x sz
+        # c_red_3x3 x sz x sz -> c_out_3x3 x sz x sz
         x_3x3 = self.conv_3x3(x)
+        # c_in x sz x sz -> c_red_5x5 x sz x sz
+        # c_red_5x5 x sz x sz -> c_out_5x5 x sz x sz
         x_5x5 = self.conv_5x5(x)
+        # c_in x sz x sz -> c_out_max x sz x sz
         x_max = self.max_pool(x)
+        # (c_out_1x1 + c_out_3x3 + c_out_5x5 + c_out_max) x sz x sz
         x_out = torch.cat([x_1x1, x_3x3, x_5x5, x_max], dim=1)
         return x_out
 
@@ -222,7 +351,7 @@ class GoogleNet(nn.Module):
             InceptionBlock(64, c_red={"3x3": 32, "5x5": 16}, c_out={"1x1": 24, "3x3": 48, "5x5": 12, "max": 12}, act_fn=self.hparams.act_fn),
             # 32x32 => 16x16
             nn.MaxPool2d(3, stride=2, padding=1),
-            InceptionBlock(96, c_red={"3x3": 32, "5x5": 16}, c_out={"1x1": 24, "3x3": 48, "5x5": 12,"max": 12}, act_fn=self.hparams.act_fn),
+            InceptionBlock(96, c_red={"3x3": 32, "5x5": 16}, c_out={"1x1": 24, "3x3": 48, "5x5": 12, "max": 12}, act_fn=self.hparams.act_fn),
             InceptionBlock(96, c_red={"3x3": 32, "5x5": 16}, c_out={"1x1": 16, "3x3": 48, "5x5": 16, "max": 16}, act_fn=self.hparams.act_fn),
             InceptionBlock(96, c_red={"3x3": 32, "5x5": 16}, c_out={"1x1": 16, "3x3": 48, "5x5": 16, "max": 16}, act_fn=self.hparams.act_fn),
             InceptionBlock(96, c_red={"3x3": 32, "5x5": 16}, c_out={"1x1": 32, "3x3": 48, "5x5": 24, "max": 24}, act_fn=self.hparams.act_fn),
@@ -248,8 +377,21 @@ class GoogleNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
+        # 3 x sz x sz -> 64 x sz x sz
         x = self.input_net(x)
+        # 64 x sz x sz -> (16+32+8+8)=64 x sz x sz
+        # 64 x sz x sz -> (24+48+12+12)=96 x sz x sz
+        # 96 x sz x sz -> 96 x [sz/2] x [sz/2]
+        # 96 x [sz/2] x [sz/2] -> (24+48+12+12)=96 x [sz/2] x [sz/2]
+        # 96 x [sz/2] x [sz/2] -> (16+48+16+16)=96 x [sz/2] x [sz/2]
+        # 96 x [sz/2] x [sz/2] -> (16+48+16+16)=96 x [sz/2] x [sz/2]
+        # 96 x [sz/2] x [sz/2] -> (32+48+24+24)=128 x [sz/2] x [sz/2]
+        # 128 x [sz/2] x [sz/2] -> 128 x [sz/4] x [sz/4]
+        # 128 x [sz/4] x [sz/4] -> (32+64+16+16)=128 x [sz/4] x [sz/4]
+        # 128 x [sz/4] x [sz/4] -> (32+64+16+16)=128 x [sz/4] x [sz/4]
         x = self.inception_blocks(x)
+        # 128 x [sz/4] x [sz/4] -> 128 x 1 x 1
+        # 128 x 1 x 1 -> 127 > num_classes
         x = self.output_net(x)
         return x
 
@@ -550,6 +692,7 @@ def create_model(model_name, model_hparams):
     model_dict = {
         "CNN": CNN,
         "CNN2": CNN2,
+        "SimpleInception": SimpleInception,
         "Inception": Inception,
         "GoogleNet": GoogleNet,
         "ResNet": ResNet,
