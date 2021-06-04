@@ -68,7 +68,7 @@ if __name__ == "__main__":
             STD = pickle.load(f)
             print('MEAN and STD load done')
 
-    transform_val = transforms.Compose(
+    transform_val_3c = transforms.Compose(
             [
                 transforms.Grayscale(num_output_channels=3),
                 transforms.Resize(RESIZE),
@@ -78,13 +78,33 @@ if __name__ == "__main__":
             ]
         )
 
-    SAVE_NAME = 'CNN2'
+    transform_val_1c = transforms.Compose(
+            [
+                transforms.Grayscale(num_output_channels=1),
+                transforms.Resize(RESIZE),
+                transforms.CenterCrop(RESIZE),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=MEAN[0], std=STD[0]),
+            ]
+        )
+
+    # SAVE_NAME = 'few-shot'
+    # SAVE_NAME = 'CNN2'
+    SAVE_NAME = 'DenseNet'
+    # SAVE_NAME = 'GoogleNet'
+    # SAVE_NAME = 'ResNet'
+    # SAVE_NAME = 'ResNetPreAct'
 
     if not os.path.exists(f'results/{SAVE_NAME}'):
         os.mkdir(f'results/{SAVE_NAME}')
 
-    model = load_model(CKPT_PATH, SAVE_NAME).cuda()
-    model = model.model
+    if SAVE_NAME == 'few-shot':
+        # model = get_few_shot_classifier()
+        MODEL_NAME = 'Fabric_nt=4_kt=2_qt=12_nv=4_kv=2_qv=1_classifier'
+        model = load_model(CKPT_PATH, MODEL_NAME, model_suffix='.pth').cuda()
+    else:
+        model = load_model(CKPT_PATH, SAVE_NAME).cuda()
+        model = model.model
 
     # model = model.cpu()
     # parm = {}
@@ -106,6 +126,8 @@ if __name__ == "__main__":
         model.blocks._modules.get('8').register_forward_hook(hook_feature)
     elif SAVE_NAME == 'DenseNet':
         model.blocks._modules.get('6').register_forward_hook(hook_feature)
+    elif SAVE_NAME == 'few-shot':
+        model._modules.get('4').register_forward_hook(hook_feature)
 
     # random select
     # test_data = ImageFolder(root=TEST_DATA_PATH, transform=transform_val)
@@ -121,6 +143,29 @@ if __name__ == "__main__":
     # img = test_data[random_index][0]
     # get_cam(model, features_blobs, img, classes, img_path, SAVE_NAME)
 
+    # # loop through
+    # classes = ['Defect-Free',
+    #            'DOG',
+    #            'Broken-Pick',
+    #            'Creases',
+    #            'Kinky-Filling',
+    #            'Transfer-Knot',
+    #            'Stand-Indicator',
+    #            'End-Out']
+    # classname = 'Transfer-Knot'
+    # for img_name in os.listdir(f'./samples/tmp/{classname}'):
+    #     # classname = os.path.splitext(img_name)[0]
+    #     # print('the ground truth class is', classname)
+    #     img_path = os.path.join(f'./samples/tmp/{classname}', img_name)
+    #     img = Image.open(img_path)
+    #     if SAVE_NAME == 'few-shot':
+    #         img = transform_val_1c(img)
+    #     else:
+    #         img = transform_val_3c(img)
+    #     # get_cam(model, features_blobs, img, classes, img_path, SAVE_NAME)
+    #     get_cam(model, features_blobs, img, img_name, classname, classes, img_path, SAVE_NAME)
+    #     features_blobs = []
+
     # loop through
     classes = ['Defect-Free',
                'DOG',
@@ -130,10 +175,15 @@ if __name__ == "__main__":
                'Transfer-Knot',
                'Stand-Indicator',
                'End-Out']
-    for img_name in os.listdir('./samples'):
-        classname = img_name
+    for img_name in os.listdir(f'./samples/original'):
+        classname = os.path.splitext(img_name)[0]
         print('the ground truth class is', classname)
-        img_path = os.path.join('./samples', img_name)
+        img_path = os.path.join(f'./samples/original', img_name)
         img = Image.open(img_path)
-        img = transform_val(img)
-        get_cam(model, features_blobs, img, classes, img_path, SAVE_NAME)
+        if SAVE_NAME == 'few-shot':
+            img = transform_val_1c(img)
+        else:
+            img = transform_val_3c(img)
+        # get_cam(model, features_blobs, img, classes, img_path, SAVE_NAME)
+        get_cam(model, features_blobs, img, img_name, classes, img_path, SAVE_NAME)
+        features_blobs = []

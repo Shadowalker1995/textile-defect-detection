@@ -10,6 +10,7 @@ Date:		2021-04-13 15:50:23
 
 import torch
 from torch.autograd import Variable
+import torch.nn as nn
 from torch.nn import functional as F
 import torch.utils.data as data
 import torchvision.transforms as transforms
@@ -25,6 +26,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from Model import Trainer
+from few_shot.models import get_few_shot_encoder
 
 
 def returnCAM(feature_conv, weight_softmax, class_idx):
@@ -34,7 +36,7 @@ def returnCAM(feature_conv, weight_softmax, class_idx):
     bz, nc, h, w = feature_conv.shape
     output_cam = []
     for idx in class_idx:
-        cam = weight_softmax[class_idx].dot(feature_conv.reshape((nc, h*w)))
+        cam = weight_softmax[idx].dot(feature_conv.reshape((nc, h*w)))
         cam = cam.reshape(h, w)
         cam = cam - np.min(cam)
         cam_img = cam / np.max(cam)
@@ -43,7 +45,7 @@ def returnCAM(feature_conv, weight_softmax, class_idx):
     return output_cam
 
 
-def get_cam(model, features_blobs, img_tensor, classes, img_path, model_name):
+def get_cam(model, features_blobs, img_tensor, img_name, classes, img_path, model_name):
     model.eval()
     params = list(model.parameters())
     weight_softmax = np.squeeze(params[-2].data.cpu().numpy())
@@ -68,20 +70,40 @@ def get_cam(model, features_blobs, img_tensor, classes, img_path, model_name):
     CAM = cv2.resize(CAMs[0], (width, height))
     heatmap = cv2.applyColorMap(CAM, cv2.COLORMAP_JET)
     result = heatmap * 0.3 + img * 0.5
-    cv2.imwrite(f'results/{model_name}/{classes[idx[0].item()]}_CAM.jpg', result)
-    cv2.imwrite(f'results/{model_name}/{classes[idx[0].item()]}.jpg', img)
+    # cv2.imwrite(f'results/{model_name}/{classes[idx[0].item()]}_CAM.jpg', result)
+    # cv2.imwrite(f'results/{model_name}/{classes[idx[0].item()]}.jpg', img)
+
+    cv2.imwrite(f'results/{model_name}/{os.path.splitext(img_name)[0]}_CAM.jpg', result)
+    cv2.imwrite(f'results/{model_name}/{os.path.splitext(img_name)[0]}.jpg', img)
+
+    # cv2.imwrite(f'results/{model_name}/{classname}/{os.path.splitext(img_name)[0]}_CAM.jpg', result)
+    # cv2.imwrite(f'results/{model_name}/{classname}/{os.path.splitext(img_name)[0]}.jpg', img)
 
 
-def load_model(ckpt_path, model_name, **kwargs):
+def load_model(model_path, model_name, model_suffix='.ckpt', **kwargs):
     """
     Inputs:
+        model_path - Path to the the directory that saving the models
         model_name - Name of the model you want to run. Is used to look up the class in "model_dict"
-        save_name (optional) - If specified, this name will be used for creating the checkpoint and logging directory.
     """
-    pretrained_filename = os.path.join(ckpt_path, model_name + ".ckpt")
+    pretrained_filename = os.path.join(model_path, model_name + model_suffix)
     if os.path.isfile(pretrained_filename):
         print(f"Found pretrained model at {pretrained_filename}, loading...")
-        model = Trainer.load_from_checkpoint(pretrained_filename)
+        if model_suffix == '.ckpt':
+            model = Trainer.load_from_checkpoint(pretrained_filename)
+        if model_suffix == '.pth':
+            model = get_few_shot_encoder()
+            # model = model[:-1]
+            model = nn.Sequential(
+                # model,
+                *list(model.children())[:-2],
+                nn.AdaptiveAvgPool2d((1, 1)),
+                nn.Flatten(),
+                nn.Linear(64, 8)
+            )
+            checkpoints = torch.load(pretrained_filename)
+            model.load_state_dict(checkpoints)
+            # model = nn.Sequential(*list(model.children())[:-2])
     else:
         print(f"Can not found pretrained model at {pretrained_filename}, exit...")
         sys.exit()

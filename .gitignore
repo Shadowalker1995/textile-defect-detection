@@ -136,3 +136,6 @@ ckpt/
 models/
 results/
 tflearn_logs/
+logs/
+/pytorch/samples/
+tmp/

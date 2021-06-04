@@ -655,7 +655,7 @@ class ResNet(nn.Module):
 
         # Mapping to classification output
         self.output_net = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1,1)),
+            nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
             nn.Linear(c_hidden[-1], self.hparams.num_classes)
         )
