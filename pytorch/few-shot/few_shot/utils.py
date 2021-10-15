@@ -1,7 +1,9 @@
 import torch
 import os
 import shutil
-from typing import Tuple, List
+import random
+import numpy as np
+from typing import Tuple, List, Optional
 
 from config import EPSILON, PATH
 
@@ -42,10 +44,29 @@ def setup_dirs():
     mkdir(PATH + '/logs/proto_nets')
     mkdir(PATH + '/logs/matching_nets')
     mkdir(PATH + '/logs/maml')
+    mkdir(PATH + '/logs/proto_nets/test')
+    mkdir(PATH + '/logs/matching_nets/test')
+    mkdir(PATH + '/logs/maml/test')
     mkdir(PATH + '/models/')
     mkdir(PATH + '/models/proto_nets')
     mkdir(PATH + '/models/matching_nets')
     mkdir(PATH + '/models/maml')
+
+
+def seed_everything(seed: Optional[int] = None) -> int:
+    """
+    Function that sets seed for pseudo-random number generators in:
+    pytorch, numpy, python.random
+
+    Args:
+        seed: the integer value seed
+    """
+    print(f"Global seed set to {seed}")
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    return seed
 
 
 def pairwise_distances(x: torch.Tensor,

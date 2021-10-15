@@ -10,8 +10,9 @@ from few_shot.datasets import OmniglotDataset, MiniImageNet, Fabric
 from few_shot.models import get_few_shot_encoder
 from few_shot.core import NShotTaskSampler, EvaluateClassifier, prepare_nshot_task
 from few_shot.proto import proto_net_episode
-from few_shot.train import fit, test
+from few_shot.train import test
 from few_shot.callbacks import *
+from few_shot.utils import seed_everything
 from config import PATH
 
 
@@ -26,6 +27,8 @@ torch.backends.cudnn.benchmark = True
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='Omniglot',
                     help='which dataset to use (Omniglot | miniImagenet | Fabric')
+parser.add_argument("-rs", dest="random_seed", type=int, default=42,
+                    help="Random Seed (Default: 42)")
 parser.add_argument('--distance', type=str, default='l2',
                     help='which distance metric to use. (l2 | cosine)')
 parser.add_argument('--n-train', type=int, default=1,
@@ -42,8 +45,9 @@ parser.add_argument('--q-test', type=int, default=1,
                     help='query samples per class for validation tasks')
 args = parser.parse_args()
 
-evaluation_episodes = 1000
-test_episodes = 1000
+seed_everything(args.random_seed)
+evaluation_episodes = 10000
+test_episodes = 10000
 # Arbitrary number of batches of n-shot tasks to generate in one epoch
 episodes_per_epoch = 1000
 
@@ -58,17 +62,17 @@ elif args.dataset == 'miniImageNet':
     num_input_channels = 3
     drop_lr_every = 40
 elif args.dataset == 'Fabric':
-    n_epochs = 200
+    n_epochs = 100
     dataset_class = Fabric
     num_input_channels = 1
     drop_lr_every = 150
 else:
     raise(ValueError, 'Unsupported dataset')
 
-# param_str = f'{args.dataset}_nt={args.n_train}_kt={args.k_train}_qt={args.q_train}_' \
-            # f'nv={args.n_test}_kv={args.k_test}_qv={args.q_test}'
 param_str = f'{args.dataset}_nt={args.n_train}_kt={args.k_train}_qt={args.q_train}_' \
-            f'nv={args.n_test}_kv=2_qv={args.q_test}'
+            f'nv={args.n_test}_kv={args.k_test}_qv={args.q_test}'
+# param_str = f'{args.dataset}_nt={args.n_train}_kt={args.k_train}_qt={args.q_train}_' \
+#             f'nv={args.n_test}_kv=2_qv={args.q_test}'
 
 print(param_str)
 
@@ -113,25 +117,47 @@ model.to(device, dtype=torch.double)
 optimiser = Adam(model.parameters(), lr=1e-3)
 loss_fn = torch.nn.NLLLoss().cuda()
 
-# test(
-    # model,
-    # optimiser,
-    # loss_fn,
-    # # dataloader=evaluation_taskloader,
-    # dataloader=test_taskloader,
-    # prepare_batch=prepare_nshot_task(args.n_test, args.k_test, args.q_test),
-    # eval_fn=proto_net_episode,
-    # eval_fn_kwargs={'n_shot': args.n_test, 'k_way': args.k_test, 'q_queries': args.q_test, 'train': False,
-                    # 'distance': args.distance},
-# )
-
-test(
+test_results = test(
     model,
     optimiser,
     loss_fn,
-    dataloader=background_taskloader,
-    prepare_batch=prepare_nshot_task(args.n_train, args.k_train, args.q_train),
+    # dataloader=evaluation_taskloader,
+    dataloader=test_taskloader,
+    prepare_batch=prepare_nshot_task(args.n_test, args.k_test, args.q_test),
     eval_fn=proto_net_episode,
-    eval_fn_kwargs={'n_shot': args.n_train, 'k_way': args.k_train, 'q_queries': args.q_train, 'train': False,
+    eval_fn_kwargs={'n_shot': args.n_test, 'k_way': args.k_test, 'q_queries': args.q_test, 'train': False,
                     'distance': args.distance},
 )
+print(f"seed {args.random_seed}: ", test_results)
+with open(f'{PATH}/logs/proto_nets/test/{param_str}.log', "a") as f:
+    f.write(f"seed {args.random_seed}: {str(test_results)}\n")
+
+val_results = test(
+    model,
+    optimiser,
+    loss_fn,
+    dataloader=evaluation_taskloader,
+    prepare_batch=prepare_nshot_task(args.n_test, args.k_test, args.q_test),
+    eval_fn=proto_net_episode,
+    eval_fn_kwargs={'n_shot': args.n_test, 'k_way': args.k_test, 'q_queries': args.q_test, 'train': False,
+                    'distance': args.distance},
+    prefix='val_',
+)
+print(f"seed {args.random_seed}: ", val_results)
+with open(f'{PATH}/logs/proto_nets/test/{param_str}.log', "a") as f:
+    f.write(f"seed {args.random_seed}: {str(val_results)}\n")
+
+# train_results = test(
+    # model,
+    # optimiser,
+    # loss_fn,
+    # dataloader=background_taskloader,
+    # prepare_batch=prepare_nshot_task(args.n_train, args.k_train, args.q_train),
+    # eval_fn=proto_net_episode,
+    # eval_fn_kwargs={'n_shot': args.n_train, 'k_way': args.k_train, 'q_queries': args.q_train, 'train': False,
+                    # 'distance': args.distance},
+    # prefix='train_'
+# )
+# print(f"seed {args.random_seed}: ", train_results)
+# with open(f'{PATH}/logs/proto_nets/test/{param_str}.log', "a") as f:
+    # f.write(f"seed {args.random_seed}: {str(train_results)}\n")

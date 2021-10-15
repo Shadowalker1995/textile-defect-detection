@@ -142,6 +142,7 @@ def fit(model: Module,
 
             callbacks.on_batch_end(batch_index, batch_logs)
 
+        del batch_index, batch
         # Run on epoch end
         callbacks.on_epoch_end(epoch, epoch_logs)
 
@@ -186,4 +187,4 @@ def test(model: Module,
     totals[loss_name] = totals[loss_name] / seen
     totals[acc_name] = totals[acc_name] / seen
 
-    print(totals)
+    return totals

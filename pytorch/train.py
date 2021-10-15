@@ -67,32 +67,35 @@ def train_model(model_name, save_name=None, **kwargs):
     if save_name is None:
         save_name = model_name
 
+    # save the best checkpoint based on the maximum val_acc recorded. Saves only weights and not optimizer
+    checkpoint_callback = ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc")
     # create a PyTorch Lightning trainer with the generation callback
     trainer = pl.Trainer(default_root_dir=os.path.join(CKPT_PATH, save_name),
-                         # save the best checkpoint based on the maximum val_acc recorded. Saves only weights and not optimizer
-                         checkpoint_callback=ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
+                         checkpoint_callback=True,
                          gpus=1 if str(device) == "cuda:0" else 0,
                          auto_select_gpus=True,
                          max_epochs=EPOCHS,
                          # log learning rate every epoch
-                         callbacks=[LearningRateMonitor("epoch")],
-                         progress_bar_refresh_rate=1)
+                         callbacks=[checkpoint_callback,
+                                    LearningRateMonitor("epoch")],
+                         progress_bar_refresh_rate=1,
+                         weights_summary='full')
     # plot the computation graph in tensorboard
     trainer.logger._log_graph = True
     # optional logging argument that we don't need
     trainer.logger._default_hp_metric = None
+    # trainer.callbacks = ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc")
 
     pretrained_filename = os.path.join(CKPT_PATH, save_name + ".ckpt")
     if os.path.isfile(pretrained_filename):
         print(f"Found pretrained model at {pretrained_filename}, loading...")
         model = Trainer.load_from_checkpoint(pretrained_filename)
     else:
-        pl.seed_everything(RANDOM_SEED)
         model = Trainer(model_name=model_name, **kwargs)
         trainer.fit(model, train_loader, val_loader)
 
         # load best checkpoint after training
-        model = Trainer.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
+        model = Trainer.load_from_checkpoint(checkpoint_callback.best_model_path)
 
     # test best model on validation and test set
     # train_result = trainer.test(model, test_dataloaders=train_loader, verbose=False)
@@ -108,9 +111,6 @@ def train_model(model_name, save_name=None, **kwargs):
 
 
 if __name__ == "__main__":
-    # Setting the seed
-    pl.seed_everything(42)
-
     # Ensure that all operations are deterministic on GPU (if used) for reproducibility
     torch.backends.cudnn.determinstic = True
     torch.backends.cudnn.benchmark = False
@@ -138,6 +138,9 @@ if __name__ == "__main__":
     RESIZE = (args.img_size, args.img_size)
     NUM_WORKERS = args.num_workers
     RANDOM_SEED = args.random_seed
+
+    # Setting the seed
+    pl.seed_everything(RANDOM_SEED)
 
     train_loader, val_loader, test_loader, train_data, val_data, test_data = load_data(BATCH_SIZE, RESIZE, NUM_WORKERS)
 

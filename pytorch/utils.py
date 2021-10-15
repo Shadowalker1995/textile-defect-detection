@@ -120,6 +120,7 @@ def get_confusion_matrix(model, data_loader, num_classes, device, verbose=False)
                 imgs = imgs.to(device)
                 labels = labels.to(device)
                 outputs = model(imgs)
+                outputs = F.softmax(outputs, dim=1).data.squeeze()
                 preds = outputs.argmax(dim=-1)
                 for t, p in zip(labels.view(-1), preds.view(-1)):
                     confusion_matrix[t.long(), p.long()] += 1
@@ -147,7 +148,7 @@ def plot_confusion_matrix(cm, classes,
     print(cm)
 
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
-    plt.title(title)
+    # plt.title(title)
     plt.colorbar()
     tick_marks = np.arange(len(classes))
     plt.xticks(tick_marks, classes, rotation=45)
@@ -161,14 +162,14 @@ def plot_confusion_matrix(cm, classes,
                  color="white" if cm[i, j] > thresh else "black")
 
     plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
+    plt.ylabel('True label', fontsize=15)
+    plt.xlabel('Predicted label', fontsize=15)
     if isSave:
-        plt.savefig(save_path + '{}.png'.format(title))
+        plt.savefig(save_path + '{}.png'.format(title), dpi=500, bbox_inches='tight')
     plt.show()
 
 
-def load_data(batch_size, resize, num_workers):
+def load_data(batch_size, resize, num_workers, num_channels=3):
     TRAIN_DATA_PATH = "../data/8Classes-9041_hist/train/"
     VAL_DATA_PATH = "../data/8Classes-9041_hist/val/"
     TEST_DATA_PATH = "../data/8Classes-9041_hist/test/"
@@ -182,24 +183,24 @@ def load_data(batch_size, resize, num_workers):
 
     transform = transforms.Compose(
             [
-                # transforms.Grayscale(num_output_channels=3),
+                transforms.Grayscale(num_output_channels=num_channels),
                 transforms.Resize(resize),
                 transforms.CenterCrop(resize),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
                 # transforms.RandomRotation(0.1),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=MEAN, std=STD),
+                transforms.Normalize(mean=MEAN[0], std=STD[0]),
             ]
         )
 
     transform_val = transforms.Compose(
             [
-                # transforms.Grayscale(num_output_channels=3),
+                transforms.Grayscale(num_output_channels=num_channels),
                 transforms.Resize(resize),
                 transforms.CenterCrop(resize),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=MEAN, std=STD),
+                transforms.Normalize(mean=MEAN[0], std=STD[0]),
             ]
         )
     train_data = ImageFolder(root=TRAIN_DATA_PATH, transform=transform)

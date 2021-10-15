@@ -51,8 +51,8 @@ if __name__ == "__main__":
     torch.backends.cudnn.determinstic = True
     torch.backends.cudnn.benchmark = False
 
-    TEST_DATA_PATH = "../data/8Classes-9041/test/"
-    MEAN_STD_PATH = "../data/8Classes-9041/mean_std_value_train.pkl"
+    TEST_DATA_PATH = "../data/8Classes-9041_hist/test/"
+    MEAN_STD_PATH = "../data/8Classes-9041_hist/mean_std_value_train.pkl"
     CKPT_PATH = "./ckpt/"
 
     NUM_CLASSES = args.num_classes
@@ -90,16 +90,15 @@ if __name__ == "__main__":
 
     # SAVE_NAME = 'few-shot'
     # SAVE_NAME = 'CNN2'
-    SAVE_NAME = 'DenseNet'
+    # SAVE_NAME = 'DenseNet'
     # SAVE_NAME = 'GoogleNet'
     # SAVE_NAME = 'ResNet'
-    # SAVE_NAME = 'ResNetPreAct'
+    SAVE_NAME = 'ResNetPreAct'
 
     if not os.path.exists(f'results/{SAVE_NAME}'):
         os.mkdir(f'results/{SAVE_NAME}')
 
     if SAVE_NAME == 'few-shot':
-        # model = get_few_shot_classifier()
         MODEL_NAME = 'Fabric_nt=4_kt=2_qt=12_nv=4_kv=2_qv=1_classifier'
         model = load_model(CKPT_PATH, MODEL_NAME, model_suffix='.pth').cuda()
     else:
@@ -175,10 +174,10 @@ if __name__ == "__main__":
                'Transfer-Knot',
                'Stand-Indicator',
                'End-Out']
-    for img_name in os.listdir(f'./samples/original'):
+    for img_name in os.listdir(f'./samples/histeq'):
         classname = os.path.splitext(img_name)[0]
         print('the ground truth class is', classname)
-        img_path = os.path.join(f'./samples/original', img_name)
+        img_path = os.path.join(f'./samples/histeq', img_name)
         img = Image.open(img_path)
         if SAVE_NAME == 'few-shot':
             img = transform_val_1c(img)
